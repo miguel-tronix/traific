@@ -1,0 +1,36 @@
+---
+- name: Configure Traific Base Servers
+  hosts: traific_servers
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install common dependencies
+      apt:
+        name:
+          - curl
+          - git
+          - jq
+          - unzip
+          - python3-pip
+        state: present
+
+- name: Setup Geospatial Tools
+  hosts: traific_servers
+  become: true
+  tasks:
+    - name: Install PostgreSQL Client tools
+      apt:
+        name: postgresql-client
+        state: present
+    
+    # In a real scenario, we might install GDAL, PROJ, etc. here
+    - name: Install Geospatial libraries
+      apt:
+        name:
+          - gdal-bin
+          - python3-gdal
+        state: present
