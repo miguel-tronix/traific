@@ -11,7 +11,7 @@ npm install -g @marp-team/marp-cli
 
 ### Generate HTML Slides
 ```bash
-cd /home/migtronix/ansible/ai-workloads/traific/docs
+cd ~/ansible/traific/docs
 marp presentation.md -o presentation.html
 ```
 
@@ -28,7 +28,7 @@ marp presentation.md --pptx -o presentation.pptx
 ### Preview in Browser (Live Reload)
 ```bash
 marp -s presentation.md
-# Opens browser at http://localhost:8080
+# Opens browser at https://traific.local
 ```
 
 ## Option 2: Reveal.js (Interactive Web Slides)
@@ -40,7 +40,7 @@ npm install -g reveal-md
 
 ### Generate Slides
 ```bash
-cd /home/migtronix/ansible/ai-workloads/traific/docs
+cd ~/traific/docs
 reveal-md presentation.md --theme night
 ```
 
