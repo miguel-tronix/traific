@@ -1,0 +1,39 @@
+graph TD
+    %% Time-based data flow
+    subgraph Realtime ["Real-time (Seconds)"]
+        direction LR
+        Sensor[IoT Sensor] -->|Event| Process[Stream Process]
+        Process -->|Current State| Hot[(Hot Storage\nRDS + Redis)]
+    end
+
+    subgraph NearRealtime ["Near Real-time (Minutes)"]
+        Process -->|Raw Data| WarmRaw[(Warm Raw\nS3 - JSON)]
+        WarmRaw -->|5-min Rollups| WarmAgg[(Warm Aggregates\nRDS)]
+    end
+
+    subgraph Batch ["Batch Processing (Hours/Days)"]
+        WarmRaw -->|Daily ETL| ETL[AWS Glue]
+        WarmAgg -->|Daily Rollups| ETL
+        ETL -->|Parquet Conversion| Cold[(Cold Storage\nS3 - Partitioned)]
+    end
+
+    subgraph Analytics ["Analytics (Months/Years)"]
+        Cold -->|Query| Athena[Amazon Athena]
+        Cold -->|ML Training| SageMaker[Amazon SageMaker]
+        Cold -->|Long-term| Glacier[S3 Glacier]
+    end
+
+    subgraph DataRetention ["Data Retention Policy"]
+        direction LR
+        P1["Hot: 7 days\nRDS + Redis"]
+        P2["Warm: 30 days\nS3 + Aggregates"]
+        P3["Cold: 7 years\nS3 Partitioned"]
+        P4["Archive: 10+ years\nGlacier"]
+    end
+
+    %% Styling
+    style Realtime fill:#ffebee,stroke:#b71c1c
+    style NearRealtime fill:#fff3e0,stroke:#e65100
+    style Batch fill:#e8f5e9,stroke:#2e7d32
+    style Analytics fill:#e1f5fe,stroke:#01579b
+    style DataRetention fill:#f3e5f5,stroke:#4a148c

@@ -1,0 +1,51 @@
+graph TB
+    subgraph Global ["Global Management Plane"]
+        direction LR
+        CM[Control Tower\nAccount Factory]
+        OU[Organizational Units\nPer Region/Environment]
+    end
+
+    subgraph TenantA ["Tenant A: City of Melbourne"]
+        direction TB
+        subgraph InfraA ["Infrastructure"]
+            VPC_A[VPC\n10.1.0.0/16]
+            EKS_A[EKS Cluster\nNamespace: tenant-a]
+        end
+        
+        subgraph DataA ["Data Isolation"]
+            DB_A[(RDS\nSchema: tenant_a\nRLS Policies)]
+            S3_A[S3\nPrefix: /tenant-a/]
+        end
+    end
+
+    subgraph TenantB ["Tenant B: City of Sydney"]
+        direction TB
+        subgraph InfraB ["Infrastructure"]
+            VPC_B[VPC\n10.2.0.0/16]
+            EKS_B[EKS Cluster\nNamespace: tenant-b]
+        end
+        
+        subgraph DataB ["Data Isolation"]
+            DB_B[(RDS\nSchema: tenant_b\nRLS Policies)]
+            S3_B[S3\nPrefix: /tenant-b/]
+        end
+    end
+
+    subgraph IsolationMechanisms ["Isolation Mechanisms"]
+        direction LR
+        I1[Network: VPC Peering/VPN]
+        I2[Compute: Kubernetes Namespaces]
+        I3[Database: Row-Level Security]
+        I4[Storage: S3 Bucket Policies]
+        I5[API: JWT Claims + Tenant Context]
+    end
+
+    Global --> TenantA
+    Global --> TenantB
+    TenantA -.-> IsolationMechanisms
+    TenantB -.-> IsolationMechanisms
+    
+    style Global fill:#e1f5fe,stroke:#01579b
+    style TenantA fill:#e8f5e9,stroke:#2e7d32
+    style TenantB fill:#fff3e0,stroke:#e65100
+    style IsolationMechanisms fill:#f3e5f5,stroke:#4a148c

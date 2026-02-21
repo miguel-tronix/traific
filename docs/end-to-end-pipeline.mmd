@@ -1,0 +1,82 @@
+graph TB
+    %% Title
+    title["Traific Platform: Enhanced Data Pipeline Architecture"]
+    style title fill:#fff,stroke:none,font-weight:bold
+
+    %% Data Sources Layer
+    subgraph Sources ["Data Sources Layer"]
+        direction LR
+        S1[("Physical Sensors\n(Inductive Loops)")]
+        S2[("Camera Systems\n(Computer Vision)")]
+        S3[("Bluetooth/WiFi\nSniffers")]
+        S4[("Third-party\nData Feeds")]
+    end
+
+    %% Ingestion Layer
+    subgraph Ingestion ["Ingestion Layer (ap-southeast-2)"]
+        IoT[AWS IoT Core\nMQTT/HTTPS Endpoint]
+        KDS[Amazon Kinesis\nData Streams]
+        IoT -->|Raw Sensor Data| KDS
+    end
+
+    %% Stream Processing Layer
+    subgraph StreamProc ["Stream Processing Layer"]
+        KDA[Kinesis Data Analytics\nApache Flink]
+        Lambda[Lambda Functions\nLightweight ETL]
+        KDS -->|Stream| KDA
+        KDS -->|Trigger| Lambda
+    end
+
+    %% Storage Layer
+    subgraph Storage ["Storage Layer"]
+        direction TB
+        subgraph Hot ["Hot Path"]
+            RDS[(RDS PostgreSQL\n+ PostGIS + TimescaleDB)]
+            Redis[(ElastiCache\nRedis)]
+        end
+        
+        subgraph Warm ["Warm Path"]
+            S3_Cur[("S3 - Current Month\n(Parquet)")]
+        end
+        
+        subgraph Cold ["Cold Path"]
+            S3_Hist[("S3 - Historical\n(Parquet/Zstandard)")]
+            Glacier[("S3 Glacier\nArchival")]
+        end
+    end
+
+    %% Processing & Analytics
+    subgraph Processing ["Analytics & Processing"]
+        Glue[AWS Glue\nETL Jobs]
+        Athena[Amazon Athena\nAd-hoc Queries]
+        SageMaker[Amazon SageMaker\nML Models]
+    end
+
+    %% Serving Layer
+    subgraph Serving ["API & Serving Layer"]
+        API[FastAPI\nREST + GraphQL]
+        Cache[(Redis Cache)]
+    end
+
+    %% Data Flow Connections
+    KDA -->|Real-time Aggregates| Redis
+    KDA -->|Processed Observations| RDS
+    Lambda -->|Normalized Data| RDS
+    Lambda -->|Raw Archive| S3_Cur
+    
+    RDS -->|Time-series Data| API
+    Redis -->|Cached Metrics| API
+    
+    S3_Cur -->|Monthly Rollup| Glue
+    Glue -->|Partitioned Data| S3_Hist
+    S3_Hist -->|Query| Athena
+    S3_Hist -->|Training Data| SageMaker
+    SageMaker -->|Predictions| RDS
+    
+    %% Styling
+    style Sources fill:#e1f5fe,stroke:#01579b
+    style Ingestion fill:#fff3e0,stroke:#e65100
+    style StreamProc fill:#e8f5e9,stroke:#2e7d32
+    style Storage fill:#f3e5f5,stroke:#4a148c
+    style Processing fill:#ffebee,stroke:#b71c1c
+    style Serving fill:#e0f2f1,stroke:#006064
