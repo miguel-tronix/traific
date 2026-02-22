@@ -1,39 +1,62 @@
 graph TD
-    %% Time-based data flow
-    subgraph Realtime ["Real-time (Seconds)"]
+    %% Global Title
+    title["<b>Data Retention Policy & Lifecycle Management</b>"]
+    style title fill:#ffffff,stroke:none,font-size:20px
+
+    %% Timeline/Latency Guide
+    subgraph Timeline ["<b>Data Aging & Access Latency</b>"]
         direction LR
-        Sensor[IoT Sensor] -->|Event| Process[Stream Process]
-        Process -->|Current State| Hot[(Hot Storage\nRDS + Redis)]
+        T1[Real-time / MS] --> T2[Minutes / Hours] --> T3[Days / Months] --> T4[Years / Decades]
+    end
+    style Timeline fill:#f9f9f9,stroke:#ccc,stroke-dasharray: 5 5
+
+    %% Data Tiers
+    subgraph Hot ["<b>Tier 1: Operational (Hot)</b>"]
+        direction TB
+        H1[("<b>ElastiCache (Redis)</b><br/>Current State")]
+        H2[("<b>RDS / PostGIS</b><br/>Active Observations")]
+        noteH["Retention: 7 Days"]
     end
 
-    subgraph NearRealtime ["Near Real-time (Minutes)"]
-        Process -->|Raw Data| WarmRaw[(Warm Raw\nS3 - JSON)]
-        WarmRaw -->|5-min Rollups| WarmAgg[(Warm Aggregates\nRDS)]
+    subgraph Warm ["<b>Tier 2: Tactical (Warm)</b>"]
+        direction TB
+        W1[("<b>S3 Standard</b><br/>JSON Raw Buffer")]
+        W2[("<b>RDS Aggregates</b><br/>Hourly/Daily Rollups")]
+        noteW["Retention: 30 Days"]
     end
 
-    subgraph Batch ["Batch Processing (Hours/Days)"]
-        WarmRaw -->|Daily ETL| ETL[AWS Glue]
-        WarmAgg -->|Daily Rollups| ETL
-        ETL -->|Parquet Conversion| Cold[(Cold Storage\nS3 - Partitioned)]
+    subgraph Cold ["<b>Tier 3: Analytical (Cold)</b>"]
+        direction TB
+        C1[("<b>S3 Intelligent Tiering</b><br/>Parquet / Snappy")]
+        C2[("<b>Glue Catalog</b><br/>Partitioned Metadata")]
+        noteC["Retention: 7 Years"]
     end
 
-    subgraph Analytics ["Analytics (Months/Years)"]
-        Cold -->|Query| Athena[Amazon Athena]
-        Cold -->|ML Training| SageMaker[Amazon SageMaker]
-        Cold -->|Long-term| Glacier[S3 Glacier]
+    subgraph Archive ["<b>Tier 4: Regulatory (Archive)</b>"]
+        direction TB
+        A1[("<b>S3 Glacier Deep Archive</b><br/>WORM Compliance")]
+        noteA["Retention: 10+ Years"]
     end
 
-    subgraph DataRetention ["Data Retention Policy"]
-        direction LR
-        P1["Hot: 7 days\nRDS + Redis"]
-        P2["Warm: 30 days\nS3 + Aggregates"]
-        P3["Cold: 7 years\nS3 Partitioned"]
-        P4["Archive: 10+ years\nGlacier"]
-    end
+    %% Movement / ETL Logic
+    H2 ==>|Stream ETL| W1
+    W1 ==>|Compaction / Glue| C1
+    C1 ==>|Lifecycle Policy| A1
 
-    %% Styling
-    style Realtime fill:#ffebee,stroke:#b71c1c
-    style NearRealtime fill:#fff3e0,stroke:#e65100
-    style Batch fill:#e8f5e9,stroke:#2e7d32
-    style Analytics fill:#e1f5fe,stroke:#01579b
-    style DataRetention fill:#f3e5f5,stroke:#4a148c
+    %% Analytics Access
+    Athena{{Amazon Athena}} -.->|SQL Query| C1
+    SageMaker{{SageMaker}} -.->|Model Training| C1
+
+    %% Styling for Professionalism
+    style Hot fill:#fff1f0,stroke:#cf1322,stroke-width:2px
+    style Warm fill:#fffbe6,stroke:#d4b106,stroke-width:2px
+    style Cold fill:#e6f7ff,stroke:#1890ff,stroke-width:2px
+    style Archive fill:#f0f5ff,stroke:#1d39c4,stroke-width:2px
+    
+    style noteH fill:none,stroke:none,font-style:italic
+    style noteW fill:none,stroke:none,font-style:italic
+    style noteC fill:none,stroke:none,font-style:italic
+    style noteA fill:none,stroke:none,font-style:italic
+    
+    style Athena fill:#efdbff,stroke:#722ed1
+    style SageMaker fill:#efdbff,stroke:#722ed1
