@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-beat
+  namespace: traific-apps
+  labels:
+    app: analytics-beat
+    app.kubernetes.io/name: analytics-beat
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: analytics-beat
+      app.kubernetes.io/name: analytics-beat
+  template:
+    metadata:
+      labels:
+        app: analytics-beat
+        app.kubernetes.io/name: analytics-beat
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: analytics-beat
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: beat
+          image: traific/analytics:latest
+          imagePullPolicy: Always
+          command:
+            - celery
+            - -A
+            - src.tasks
+            - beat
+            - --loglevel=info
+            - --schedule=/data/celerybeat-schedule.db
+          envFrom:
+            - configMapRef:
+                name: analytics-config
+            - secretRef:
+                name: analytics-secret
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-secret
+                  key: db-password
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: beat-data
+              mountPath: /data
+      volumes:
+        - name: beat-data
+          emptyDir: {}

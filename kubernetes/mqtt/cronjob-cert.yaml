@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: emqx-cert-renewal
+  namespace: traific-mqtt
+  labels:
+    app: emqx
+spec:
+  schedule: "0 3 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: cert-renewal
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  kubectl rollout restart statefulset emqx -n traific-mqtt
+              env:
+                - name: KUBECONFIG
+                  value: /etc/kubernetes/config
+              volumeMounts:
+                - name: kubeconfig
+                  mountPath: /etc/kubernetes/config
+                  readOnly: true
+          volumes:
+            - name: kubeconfig
+              secret:
+                secretName: kubeconfig

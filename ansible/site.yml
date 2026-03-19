@@ -16,21 +16,55 @@
           - jq
           - unzip
           - python3-pip
+          - postgresql-client
+          - gdal-bin
+          - python3-gdal
         state: present
+
+    - name: Install Python dependencies for EKS tools
+      pip:
+        name:
+          - boto3
+          - kubernetes
+        state: present
+        executable: pip3
 
 - name: Setup Geospatial Tools
   hosts: traific_servers
   become: true
   tasks:
-    - name: Install PostgreSQL Client tools
-      apt:
-        name: postgresql-client
-        state: present
-    
-    # In a real scenario, we might install GDAL, PROJ, etc. here
-    - name: Install Geospatial libraries
+    - name: Install GDAL and geospatial libraries
       apt:
         name:
           - gdal-bin
           - python3-gdal
+          - libproj-dev
+          - libgeos-dev
         state: present
+
+- name: Manage Traific Secrets in AWS Secrets Manager
+  hosts: traific_servers
+  vars:
+    aws_region: ap-southeast-2
+  tasks:
+    - name: Create Traific secrets directory in AWS Secrets Manager
+      command:
+        cmd: >
+          aws secretsmanager create-secret
+          --name traific/db/credentials
+          --secret-string '{"username":"traific_admin","password":"CHANGE_ME","host":"traific-postgres.ap-southeast-2.rds.amazonaws.com"}'
+          --region {{ aws_region }}
+      register: secret_result
+      failed_when: "'AlreadyExistsException' not in secret_result.stderr and secret_result.rc != 0"
+      changed_when: "'created' in secret_result.stdout"
+
+    - name: Create Redis secret
+      command:
+        cmd: >
+          aws secretsmanager create-secret
+          --name traific/redis/credentials
+          --secret-string '{"password":"CHANGE_ME_IN_PRODUCTION"}'
+          --region {{ aws_region }}
+      register: redis_secret_result
+      failed_when: "'AlreadyExistsException' not in redis_secret_result.stderr and redis_secret_result.rc != 0"
+      changed_when: "'created' in redis_secret_result.stdout"

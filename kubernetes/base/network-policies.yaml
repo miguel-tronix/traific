@@ -1,0 +1,99 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traific-redis-allow
+  namespace: traific-redis
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/name: traific
+        - namespaceSelector:
+            matchLabels:
+              name: traific-apps
+      ports:
+        - protocol: TCP
+          port: 6379
+  egress:
+    - to:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traific-mqtt-allow
+  namespace: traific-mqtt
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 1883
+        - protocol: TCP
+          port: 8083
+        - protocol: TCP
+          port: 18083
+        - protocol: TCP
+          port: 53688
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+          ports:
+            - protocol: TCP
+              port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: traific-apps-allow
+  namespace: traific-apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: traific-ingress
+    - from:
+        - podSelector:
+            matchLabels:
+              app: redis
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: traific-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: traific-mqtt
+      ports:
+        - protocol: TCP
+          port: 1883
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80

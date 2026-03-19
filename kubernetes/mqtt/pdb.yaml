@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PodDisruptionBudget
+metadata:
+  name: emqx-pdb
+  namespace: traific-mqtt
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: emqx
+      app.kubernetes.io/name: emqx

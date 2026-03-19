@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traific-mqtt
+  labels:
+    app.kubernetes.io/name: emqx
+    app.kubernetes.io/component: mqtt-broker
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traific-redis
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traific-apps
+  labels:
+    app.kubernetes.io/name: traific
+    app.kubernetes.io/component: application
