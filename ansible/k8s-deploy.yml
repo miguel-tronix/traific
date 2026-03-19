@@ -54,15 +54,6 @@
       changed_when: "'created' in redis_result.stdout or 'configured' in redis_result.stdout"
       notify: Wait for Redis
 
-    - name: Apply API configmap with DB endpoint
-      command:
-        cmd: >
-          kubectl patch configmap api-config -n traific-apps
-          --type merge
-          -p '{"data":{"DB_HOST":"{{ db_endpoint }}"}}'
-      when: db_endpoint | length > 0
-      ignore_errors: yes
-
     - name: Apply Stream Processor
       command:
         cmd: "kubectl apply -f {{ k8s_manifest_dir }}/stream-processor/"
@@ -80,6 +71,48 @@
         cmd: "kubectl apply -f {{ k8s_manifest_dir }}/analytics/"
       register: analytics_result
       changed_when: "'created' in analytics_result.stdout or 'configured' in analytics_result.stdout"
+
+    - name: Apply API configmap with DB endpoint
+      command:
+        cmd: >
+          kubectl patch configmap api-config -n traific-apps
+          --type merge
+          -p '{"data":{"DB_HOST":"{{ db_endpoint }}"}}'
+      when: db_endpoint | length > 0
+      ignore_errors: yes
+
+    - name: Fetch DB Secret
+      command:
+        cmd: >
+          aws secretsmanager get-secret-value --secret-id traific/db/credentials --region {{ aws_region }} --query SecretString --output text
+      register: db_secret_json
+
+    - name: Fetch Redis Secret
+      command:
+        cmd: >
+          aws secretsmanager get-secret-value --secret-id traific/redis/credentials --region {{ aws_region }} --query SecretString --output text
+      register: redis_secret_json
+
+    - name: Parse Secrets
+      set_fact:
+        db_password: "{{ (db_secret_json.stdout | from_json).password }}"
+        redis_password: "{{ (redis_secret_json.stdout | from_json).password }}"
+
+    - name: Patch DB Secrets in K8s
+      command:
+        cmd: >
+          kubectl patch secret {{ item }} -n traific-apps --type merge
+          -p '{"stringData":{"db-password":"{{ db_password }}"}}'
+      loop:
+        - api-secret
+        - stream-processor-secret
+        - analytics-secret
+
+    - name: Patch Redis Secret in K8s
+      command:
+        cmd: >
+          kubectl patch secret redis-secret -n traific-redis --type merge
+          -p '{"stringData":{"redis-password":"{{ redis_password }}"}}'
 
     - name: Apply Ingress (ALB)
       command:

@@ -113,7 +113,7 @@
           /usr/local/bin/helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver
           --namespace kube-system
           --set controller.replicaCount=2
-          --set node.nodeTolerts="[workload=redis]"
+          --set-json 'node.tolerations=[{"key":"workload","operator":"Equal","value":"redis","effect":"NoSchedule"}]'
           --wait --timeout 5m
 
     - name: Install Metrics Server

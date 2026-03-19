@@ -1,22 +1,3 @@
-resource "aws_iam_role" "traific_workloads" {
-  name = "traific-workloads-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "stream_processor_s3" {
-  role       = aws_iam_role.traific_workloads.name
-  policy_arn = aws_iam_policy.stream_processor_s3.arn
-}
 
 resource "aws_iam_policy" "stream_processor_s3" {
   name        = "traific-stream-processor-s3"
@@ -53,10 +34,6 @@ resource "aws_iam_policy" "stream_processor_s3" {
   })
 }
 
-resource "aws_iam_instance_profile" "traific_workloads" {
-  name = "traific-workloads-profile"
-  role = aws_iam_role.traific_workloads.name
-}
 
 data "aws_ami" "eks_worker" {
   filter {

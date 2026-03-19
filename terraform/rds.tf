@@ -98,7 +98,7 @@ resource "null_resource" "enable_postgis" {
 
   provisioner "local-exec" {
     command = <<-EOT
-      PGPASSWORD='${var.db_password}' psql \
+      psql \
         --host='${aws_db_instance.default.address}' \
         --port=5432 \
         --username=traific_admin \
@@ -107,6 +107,10 @@ resource "null_resource" "enable_postgis" {
         --command="CREATE EXTENSION IF NOT EXISTS postgis_raster;" \
         --command="CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
     EOT
+
+    environment = {
+      PGPASSWORD = var.db_password
+    }
   }
 
   depends_on = [aws_db_instance.default]

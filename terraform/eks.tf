@@ -20,6 +20,10 @@ module "eks" {
       instance_types = ["t3.medium", "t3a.medium"]
       capacity_type  = "SPOT"
 
+      iam_role_additional_policies = {
+        custom_workload_policy = aws_iam_policy.stream_processor_s3.arn
+      }
+
       labels = {
         workload-type = "stateless"
       }
@@ -32,6 +36,10 @@ module "eks" {
 
       instance_types = ["t3.medium"]
       capacity_type  = "ON_DEMAND"
+
+      iam_role_additional_policies = {
+        custom_workload_policy = aws_iam_policy.stream_processor_s3.arn
+      }
 
       labels = {
         workload-type = "stateful"

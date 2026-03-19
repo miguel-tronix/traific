@@ -59,15 +59,15 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: "18083"
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
-  spec:
-    rules:
-      - host: mqtt-admin.traific.unimelb.edu.au
-        http:
-          paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: emqx
-                  port:
-                    name: http-dashboard
+spec:
+  rules:
+    - host: mqtt-admin.traific.unimelb.edu.au
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: emqx
+                port:
+                  name: http-dashboard
