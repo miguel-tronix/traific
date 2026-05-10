@@ -52,10 +52,6 @@ spec:
                 secretKeyRef:
                   name: stream-processor-secret
                   key: db-password
-            - name: AWS_STS_REGIONAL_ENDPOINTS
-              value: regional
-            - name: AWS_DEFAULT_REGION
-              value: ap-southeast-2
           resources:
             requests:
               cpu: "250m"
