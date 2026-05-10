@@ -1,0 +1,162 @@
+---
+- name: Deploy Traific Applications to EKS
+  hosts: traific_servers
+  vars:
+    eks_cluster_name: traific-cluster
+    aws_region: ap-southeast-2
+    k8s_manifest_dir: /opt/traific/kubernetes
+    db_endpoint: "{{ lookup('env', 'TRAIFIC_DB_ENDPOINT') }}"
+  tasks:
+    - name: Create deployment directory
+      file:
+        path: "{{ k8s_manifest_dir }}"
+        state: directory
+        owner: ubuntu
+        mode: '0755'
+
+    - name: Copy Kubernetes manifests
+      synchronize:
+        src: ../kubernetes/
+        dest: "{{ k8s_manifest_dir }}"
+        delete: yes
+        rsync_opts:
+          - "--include=*.yaml"
+          - "--include=*.yml"
+          - "--exclude=*.md"
+          - "--exclude=kustomization.yaml"
+
+    - name: Template environment-specific values
+      template:
+        src: "{{ item }}.j2"
+        dest: "{{ k8s_manifest_dir }}/{{ item | basename | regex_replace('\\.j2$', '') }}"
+      loop:
+        - ../kubernetes/api/configmap.yaml.j2
+        - ../kubernetes/stream-processor/configmap.yaml.j2
+      notify: Restart affected deployments
+      ignore_errors: yes
+
+    - name: Apply Traific namespaces
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/namespaces/00-namespaces.yaml"
+      register: ns_result
+      changed_when: "'created' in ns_result.stdout or 'configured' in ns_result.stdout"
+
+    - name: Apply MQTT broker (EMQX)
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/mqtt/"
+      register: mqtt_result
+      changed_when: "'created' in mqtt_result.stdout or 'configured' in mqtt_result.stdout"
+
+    - name: Apply Redis
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/redis/"
+      register: redis_result
+      changed_when: "'created' in redis_result.stdout or 'configured' in redis_result.stdout"
+      notify: Wait for Redis
+
+    - name: Apply Stream Processor
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/stream-processor/"
+      register: stream_result
+      changed_when: "'created' in stream_result.stdout or 'configured' in stream_result.stdout"
+
+    - name: Apply Traific API
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/api/"
+      register: api_result
+      changed_when: "'created' in api_result.stdout or 'configured' in api_result.stdout"
+
+    - name: Apply Analytics workers
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/analytics/"
+      register: analytics_result
+      changed_when: "'created' in analytics_result.stdout or 'configured' in analytics_result.stdout"
+
+    - name: Apply API configmap with DB endpoint
+      command:
+        cmd: >
+          kubectl patch configmap api-config -n traific-apps
+          --type merge
+          -p '{"data":{"DB_HOST":"{{ db_endpoint }}"}}'
+      when: db_endpoint | length > 0
+      ignore_errors: yes
+
+    - name: Fetch DB Secret
+      command:
+        cmd: >
+          aws secretsmanager get-secret-value --secret-id traific/db/credentials --region {{ aws_region }} --query SecretString --output text
+      register: db_secret_json
+
+    - name: Fetch Redis Secret
+      command:
+        cmd: >
+          aws secretsmanager get-secret-value --secret-id traific/redis/credentials --region {{ aws_region }} --query SecretString --output text
+      register: redis_secret_json
+
+    - name: Parse Secrets
+      set_fact:
+        db_password: "{{ (db_secret_json.stdout | from_json).password }}"
+        redis_password: "{{ (redis_secret_json.stdout | from_json).password }}"
+
+    - name: Patch DB Secrets in K8s
+      command:
+        cmd: >
+          kubectl patch secret {{ item }} -n traific-apps --type merge
+          -p '{"stringData":{"db-password":"{{ db_password }}"}}'
+      loop:
+        - api-secret
+        - stream-processor-secret
+        - analytics-secret
+
+    - name: Patch Redis Secret in K8s
+      command:
+        cmd: >
+          kubectl patch secret redis-secret -n traific-redis --type merge
+          -p '{"stringData":{"redis-password":"{{ redis_password }}"}}'
+
+    - name: Apply Ingress (ALB)
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/ingress/"
+      register: ingress_result
+      changed_when: "'created' in ingress_result.stdout or 'configured' in ingress_result.stdout"
+
+    - name: Apply base resources (RBAC, Quota, NetworkPolicy)
+      command:
+        cmd: "kubectl apply -f {{ k8s_manifest_dir }}/base/"
+      register: base_result
+      changed_when: "'created' in base_result.stdout or 'configured' in base_result.stdout"
+
+    - name: Wait for EMQX to be ready
+      command:
+        cmd: "kubectl wait --for=condition=ready pod -l app=emqx -n traific-mqtt --timeout=300s"
+      retries: 10
+      delay: 30
+
+    - name: Wait for Redis to be ready
+      command:
+        cmd: "kubectl wait --for=condition=ready pod -l app=redis -n traific-redis --timeout=180s"
+      retries: 6
+      delay: 30
+
+    - name: Verify all deployments are healthy
+      command:
+        cmd: "kubectl get deployments -n traific-apps -o wide"
+      register: deployments
+
+    - name: Show deployment status
+      debug:
+        var: deployments.stdout_lines
+
+  handlers:
+    - name: Restart affected deployments
+      command:
+        cmd: >
+          kubectl rollout restart deployment -l app=traific-api -n traific-apps
+          || kubectl rollout restart deployment traific-api -n traific-apps
+      ignore_errors: yes
+
+    - name: Wait for Redis
+      command:
+        cmd: "kubectl wait --for=condition=ready pod -l app=redis -n traific-redis --timeout=180s"
+      delay: 10
+      retries: 6

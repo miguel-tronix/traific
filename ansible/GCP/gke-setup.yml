@@ -1,0 +1,117 @@
+---
+- name: Install GKE Prerequisites
+  hosts: traific_servers
+  become: true
+  vars:
+    gcp_project: "{{ lookup('env', 'GCP_PROJECT') }}"
+    gcp_region: australia-southeast1
+    gke_cluster_name: traific-cluster
+  tasks:
+    - name: Install system dependencies
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        name:
+          - curl
+          - git
+          - jq
+          - unzip
+          - python3-pip
+          - python3-venv
+          - apt-transport-https
+          - gnupg2
+          - ca-certificates
+          - lsb-release
+        state: present
+
+    - name: Install Google Cloud SDK
+      unarchive:
+        src: https://dl.google.com/dl/cloudsdk/channels/quick/install-google-cloud-sdk.tar.gz
+        dest: /tmp
+        remote_src: yes
+        creates: /usr/local/bin/gcloud
+
+    - name: Install kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install Helm
+      unarchive:
+        src: https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
+        dest: /usr/local
+        remote_src: yes
+        creates: /usr/local/bin/helm
+      notify: Cleanup Helm archive
+
+    - name: Authenticate with Google Cloud
+      command:
+        cmd: "gcloud auth activate-service-account --key-file={{ gcp_service_account_key }}"
+      when: gcp_service_account_key is defined
+
+    - name: Set GCP project
+      command:
+        cmd: "gcloud config set project {{ gcp_project }}"
+      when: gcp_project is defined
+
+    - name: Update kubectl config for GKE cluster
+      command:
+        cmd: >
+          gcloud container clusters get-credentials {{ gke_cluster_name }}
+          --region {{ gcp_region }}
+      register: kubeconfig_result
+      changed_when: true
+
+  handlers:
+    - name: Cleanup Helm archive
+      file:
+        path: /tmp/linux-amd64
+        state: absent
+
+- name: Install Kubernetes Add-ons (Helm)
+  hosts: traific_servers
+  vars:
+    gcp_region: australia-southeast1
+    gke_cluster_name: traific-cluster
+  tasks:
+    - name: Add Helm repositories
+      command:
+        cmd: "/usr/local/bin/helm repo add {{ item.name }} {{ item.url }}"
+        creates: "/var/lib/helm/repositories/{{ item.name }}"
+      loop:
+        - { name: 'metrics-server', url: 'https://kubernetes-sigs.github.io/metrics-server' }
+        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts' }
+        - { name: 'grafana', url: 'https://grafana.github.io/helm-charts' }
+        - { name: 'emqx', url: 'https://repos.emqx.io/charts' }
+
+    - name: Update Helm repositories
+      command:
+        cmd: /usr/local/bin/helm repo update
+
+    - name: Install Metrics Server
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install metrics-server metrics-server/metrics-server
+          --namespace kube-system
+          --set args[0]="--kubelet-insecure-tls=true"
+          --wait --timeout 2m
+
+    - name: Install GCP PD CSI Driver
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install pd-csi-driver
+          https://raw.githubusercontent.com/GoogleCloudPlatform/gcp-compute-pd-csi-driver/master/charts/compute-pd-csi-driver-*.tgz
+          --namespace kube-system
+          --set controller.replicaCount=2
+          --wait --timeout 5m
+
+    - name: Install ingress-nginx
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
+          --namespace ingress-nginx
+          --create-namespace
+          --set controller.service.type=LoadBalancer
+          --set controller.publishService.enabled=true
+          --wait --timeout 5m
