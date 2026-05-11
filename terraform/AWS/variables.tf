@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS Region to deploy resources"
   type        = string
-  default     = "ap-southeast-2" # Melbourne region
+  default     = "ap-southeast-2"
 }
 
 variable "environment" {
@@ -31,7 +31,7 @@ variable "private_subnet_cidrs" {
 variable "availability_zones" {
   description = "Availability Zones"
   type        = list(string)
-  default     = ["ap-southeast-2a", "ap-southeast-2b"]
+  default     = ["ap-southeast-2a", "ap-southeast-2b", "ap-southeast-2c"]
 }
 
 variable "db_password" {
@@ -44,4 +44,22 @@ variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
   default     = "traific-cluster"
+}
+
+variable "stream_processor_image" {
+  description = "Docker image for the stream processor"
+  type        = string
+  default     = "traific/stream-processor:latest"
+}
+
+variable "api_image" {
+  description = "Docker image for the FastAPI REST API"
+  type        = string
+  default     = "traific/api:latest"
+}
+
+variable "analytics_image" {
+  description = "Docker image for the Analytics/Celery workers"
+  type        = string
+  default     = "traific/analytics:latest"
 }

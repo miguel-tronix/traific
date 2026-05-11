@@ -1,0 +1,75 @@
+flowchart LR
+    %% Title and Global Config
+    title["<b>Traific Intelligence: Real-Time Stream Analytics Engine</b>"]
+    style title fill:#fdfdfd,stroke:none,font-size:22px
+
+    %% Input Trigger
+    Input[(<b>Kinesis Stream</b><br/>Ingress: Protobuf/JSON)]
+    style Input fill:#fff7e6,stroke:#ffa940,stroke-width:2px
+
+    %% Main Flink Application
+    subgraph Flink ["<b>Apache Flink (Kinesis Data Analytics)</b>"]
+        direction LR
+        
+        subgraph ETL ["<b>1. Ingestion & Enrichment</b>"]
+            direction TB
+            P1[<b>Schema Validation</b><br/>Type Checking]
+            P2[<b>Normalization</b><br/>Unit Conversion]
+            P3{<b>Geospatial<br/>Join</b>}
+            
+            P1 ==> P2 ==> P3
+        end
+
+        subgraph Logic ["<b>2. Windowed Analytics</b>"]
+            direction TB
+            W1[<b>Tumbling Window</b><br/>1-min Traffic Volume]
+            W2[<b>Sliding Window</b><br/>5-min Avg Speed]
+            W3[<b>Session Window</b><br/>Anomaly Clustering]
+        end
+
+        subgraph Detection ["<b>3. Pattern Matching (CEP)</b>"]
+            direction TB
+            D1{<b>Shockwave<br/>Detection</b>}
+            D2{<b>Congestion<br/>Baseline</b>}
+            D3{<b>Incident<br/>Classifier</b>}
+        end
+    end
+
+    %% Sinks / Actions
+    subgraph Sinks ["<b>Downstream Delivery</b>"]
+        O1[(<b>PostGIS</b><br/>Observations)]
+        O2[(<b>ElastiCache</b><br/>Live Dashboards)]
+        O4([<b>SNS/SQS</b><br/>Emergency Alerts])
+        O3[/"<b>S3 Glacier</b><br/>Dead Letter"/]
+    end
+
+    %% Logic Connections
+    Input ==> P1
+    
+    %% Distribution to Windows
+    P3 ==>|Enriched Stream| W1
+    P3 ==>|Enriched Stream| W2
+    P3 ==>|Enriched Stream| W3
+
+    %% Flow to Detection
+    W1 --> D2
+    W2 --> D1
+    W3 --> D3
+
+    %% Final Outputs
+    P2 --o|Raw Audit| O1
+    W1 & W2 ==>|Aggregates| O2
+    D1 & D2 & D3 ==>|Triggers| O4
+    P1 -.->|Validation Fail| O3
+
+    %% Professional Styling
+    style ETL fill:#f0f5ff,stroke:#2f54eb
+    style Logic fill:#f6ffed,stroke:#52c41a
+    style Detection fill:#fff1f0,stroke:#f5222d
+    style Sinks fill:#fafafa,stroke:#8c8c8c,stroke-dasharray: 5 5
+
+    %% Node Enhancements
+    style P3 fill:#efdbff,stroke:#722ed1
+    style D1 fill:#fff1f0,stroke:#f5222d
+    style D2 fill:#fff1f0,stroke:#f5222d
+    style D3 fill:#fff1f0,stroke:#f5222d

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-config
+  namespace: traific-apps
+data:
+  REDIS_URL: "redis://redis.traific-redis:6379/0"
+  DB_HOST: "traific-postgres.cluster-*.ap-southeast-2.rds.amazonaws.com"
+  DB_PORT: "5432"
+  DB_NAME: "traific_db"
+  AGGREGATION_INTERVAL_MINUTES: "60"
+  DAILY_ROLLUP_HOUR_UTC: "16"
+  LOG_LEVEL: "INFO"
+  AWS_DEFAULT_REGION: "ap-southeast-2"

@@ -1,0 +1,98 @@
+---
+- name: Configure Traific Base Servers
+  hosts: traific_servers
+  become: true
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install common dependencies
+      apt:
+        name:
+          - curl
+          - git
+          - jq
+          - unzip
+          - python3-pip
+          - postgresql-client
+          - gdal-bin
+          - python3-gdal
+        state: present
+
+    - name: Install Python dependencies for Azure tools
+      pip:
+        name:
+          - azure-identity
+          - azure-keyvault-secrets
+          - kubernetes
+        state: present
+        executable: pip3
+
+- name: Configure Geospatial Tools
+  hosts: traific_servers
+  become: true
+  tasks:
+    - name: Install GDAL and geospatial libraries
+      apt:
+        name:
+          - gdal-bin
+          - python3-gdal
+          - libproj-dev
+          - libgeos-dev
+        state: present
+
+- name: Manage Traific Secrets in Azure Key Vault
+  hosts: traific_servers
+  vars:
+    azure_tenant_id: "{{ lookup('env', 'AZURE_TENANT_ID') }}"
+    azure_subscription_id: "{{ lookup('env', 'AZURE_SUBSCRIPTION_ID') }}"
+  tasks:
+    - name: Login to Azure
+      command:
+        cmd: "az login --service-principal -u {{ azure_client_id }} -p {{ azure_client_secret }} --tenant {{ azure_tenant_id }}"
+      when: azure_client_id is defined
+
+    - name: Create Azure Key Vault
+      command:
+        cmd: >
+          az keyvault create
+          --name traific-kv
+          --resource-group traific-rg
+          --location australiaeast
+      register: kv_result
+      failed_when: "'exists' not in kv_result.stderr and kv_result.rc != 0"
+      changed_when: kv_result.changed
+
+    - name: Set Key Vault access policy
+      command:
+        cmd: >
+          az keyvault set-policy
+          --name traific-kv
+          --upn {{ azure_user_upn }}
+          --secret-permissions get list set delete
+      when: azure_user_upn is defined
+      ignore_errors: yes
+
+    - name: Create DB credentials secret
+      command:
+        cmd: >
+          az keyvault secret set
+          --vault-name traific-kv
+          --name traific-db-password
+          --value "CHANGE_ME_IN_PRODUCTION"
+      register: secret_result
+      failed_when: "'exists' not in secret_result.stderr and secret_result.rc != 0"
+      changed_when: secret_result.changed
+
+    - name: Create Redis credentials secret
+      command:
+        cmd: >
+          az keyvault secret set
+          --vault-name traific-kv
+          --name traific-redis-password
+          --value "CHANGE_ME_IN_PRODUCTION"
+      register: redis_secret_result
+      failed_when: "'exists' not in redis_secret_result.stderr and redis_secret_result.rc != 0"
+      changed_when: redis_secret_result.changed

@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant S as Traffic Sensor
+    participant E as Edge Gateway
+    participant I as IoT Core
+    participant F as Flink Processor
+    participant D as Database
+    participant A as Alert Service
+    participant U as User Dashboard
+
+    Note over S,U: Normal Conditions
+    S->>E: Speed: 60km/h, Volume: 50
+    E->>I: Batch telemetry (5-min)
+    I->>F: Stream data
+    F->>D: Store observation
+    U->>D: Query traffic (normal)
+
+    Note over S,U: Incident Detected
+    S->>E: Speed: 5km/h, Volume: 80
+    E->>E: Local pattern match
+    E->>I: Immediate alert + telemetry
+    I->>F: Priority stream
+    F->>F: Pattern detection (speed drop >80%)
+    F->>D: Store incident record
+    F->>A: Trigger incident alert
+    A->>U: Push notification
+    A->>U: WebSocket update
+    
+    Note over U: Real-time dashboard shows incident
+    U->>D: Query incident details
+    D-->>U: Incident data + affected area

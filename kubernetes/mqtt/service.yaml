@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx
+  namespace: traific-mqtt
+  labels:
+    app: emqx
+    app.kubernetes.io/name: emqx
+spec:
+  type: ClusterIP
+  ports:
+    - name: mqtt-tcp
+      port: 1883
+      targetPort: 1883
+      protocol: TCP
+    - name: mqtt-ws
+      port: 8083
+      targetPort: 8083
+      protocol: TCP
+    - name: http-dashboard
+      port: 18083
+      targetPort: 18083
+      protocol: TCP
+  selector:
+    app: emqx
+    app.kubernetes.io/name: emqx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-headless
+  namespace: traific-mqtt
+  labels:
+    app: emqx
+    app.kubernetes.io/name: emqx
+  annotations:
+    service.kubernetes.io/headless: ""
+spec:
+  clusterIP: None
+  ports:
+    - name: mqtt-dist
+      port: 53688
+      targetPort: 53688
+      protocol: TCP
+  selector:
+    app: emqx
+    app.kubernetes.io/name: emqx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: emqx-loadbalancer
+  namespace: traific-mqtt
+  labels:
+    app: emqx
+    app.kubernetes.io/name: emqx
+  annotations:
+    service.kubernetes.io/loadbalancer-type: "default"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: mqtt-tcp
+      port: 1883
+      targetPort: 1883
+      protocol: TCP
+    - name: mqtt-ws
+      port: 8083
+      targetPort: 8083
+      protocol: TCP
+  selector:
+    app: emqx
+    app.kubernetes.io/name: emqx

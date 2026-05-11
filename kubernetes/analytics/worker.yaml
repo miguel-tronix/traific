@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-worker
+  namespace: traific-apps
+  labels:
+    app: analytics-worker
+    app.kubernetes.io/name: analytics-worker
+    app.kubernetes.io/version: "1.0"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: analytics-worker
+      app.kubernetes.io/name: analytics-worker
+  template:
+    metadata:
+      labels:
+        app: analytics-worker
+        app.kubernetes.io/name: analytics-worker
+        app.kubernetes.io/version: "1.0"
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: analytics-worker
+      containers:
+        - name: worker
+          image: traific/analytics:latest
+          imagePullPolicy: Always
+          command:
+            - celery
+            - -A
+            - src.tasks
+            - worker
+            - --loglevel=info
+            - --concurrency=4
+            - --max-tasks-per-child=1000
+          envFrom:
+            - configMapRef:
+                name: analytics-config
+            - secretRef:
+                name: analytics-secret
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-secret
+                  key: db-password
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - src.tasks
+                - inspect
+                - ping
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analytics-secret
+  namespace: traific-apps
+type: Opaque
+stringData:
+  db-password: "CHANGE_ME_IN_PRODUCTION"

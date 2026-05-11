@@ -1,0 +1,49 @@
+flowchart LR
+    %% Input
+    Input[("Kinesis Data Stream\nRaw Sensor Events")]
+    
+    %% Processing Stages
+    subgraph Flink ["Flink Application (KDA)"]
+        direction TB
+        P1[Parse & Validate]
+        P2[Normalize Schema]
+        P3[Geospatial Enrich]
+        
+        subgraph Windows ["Windowing Operations"]
+            W1[Tumbling Window\n1-min Volume]
+            W2[Sliding Window\n5-min Avg Speed]
+            W3[Session Window\nIncident Detection]
+        end
+        
+        subgraph Detection ["Pattern Detection"]
+            D1[Speed Drop >30%\n3 consecutive windows]
+            D2[Volume Spike\n>2x baseline]
+            D3[Stopped Vehicles\nDensity detection]
+        end
+        
+        P1 --> P2 --> P3
+        P3 --> W1 & W2 & W3
+        W1 --> D2
+        W2 --> D1
+        W3 --> D3
+    end
+    
+    %% Output Sinks
+    subgraph Sinks ["Output Sinks"]
+        O1[(RDS\nDetailed Observations)]
+        O2[(Redis\nReal-time Metrics)]
+        O3[("S3\nRaw Archive")]
+        O4[SNS\nIncident Alerts]
+    end
+    
+    %% Connections
+    Input --> Flink
+    W1 & W2 --> O2
+    D1 & D2 & D3 --> O4
+    P2 --> O1
+    P1 -->|Dead Letter| O3
+    
+    %% Styling
+    style Input fill:#fff3e0,stroke:#e65100
+    style Flink fill:#e8f5e9,stroke:#2e7d32
+    style Sinks fill:#e1f5fe,stroke:#01579b

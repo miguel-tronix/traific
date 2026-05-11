@@ -1,0 +1,103 @@
+graph TB
+    subgraph Edge ["Edge Location (Intersection)"]
+        direction TB
+        Greengrass[AWS IoT Greengrass Core]
+        
+        subgraph Components ["Greengrass Components"]
+            MQTT[Local MQTT Broker]
+            ML[ML Inference\nTensorFlow Lite]
+            Filter[Data Filtering\n& Aggregation]
+            Cache[Local Cache\nSQLite]
+        end
+        
+        subgraph Devices ["Connected Devices"]
+            Cam[Camera\nComputer Vision]
+            Loop[Inductive Loop]
+            Radar[Radar Sensor]
+        end
+        
+        Devices --> MQTT
+        MQTT --> Filter
+        Filter --> ML
+        ML --> Cache
+    end
+
+    subgraph Cloud ["AWS Cloud"]
+        subgraph Ingestion ["Ingestion"]
+            IoT[IoT Core]
+            Shadow[Device Shadow\nService]
+        end
+        
+        subgraph Processing ["Processing"]
+            KDA[Kinesis Analytics]
+            SageMaker[SageMaker\nModel Training]
+        end
+        
+        subgraph Storage ["Storage"]
+            RDS[(RDS)]
+            S3[S3]
+        end
+    end
+
+    %% Edge-Cloud Communication
+    Cache -->|Filtered Data\n(5-min batches)| IoT
+    ML -->|Model Updates| Greengrass
+    SageMaker -->|New Models| Shadow
+    Shadow -->|OTA Updates| ML
+    
+    %% Styling
+    style Edge fill:#ffebee,stroke:#b71c1c
+    style Cloud fill:#e1f5fe,stroke:#01579b
+    style Components fill:#e8f5e9,stroke:#2e7d32
+    style Devices fill:#fff3e0,stroke:#e65100graph TB
+    subgraph Edge ["Edge Location (Intersection)"]
+        direction TB
+        Greengrass[AWS IoT Greengrass Core]
+        
+        subgraph Components ["Greengrass Components"]
+            MQTT[Local MQTT Broker]
+            ML[ML Inference\nTensorFlow Lite]
+            Filter[Data Filtering\n& Aggregation]
+            Cache[Local Cache\nSQLite]
+        end
+        
+        subgraph Devices ["Connected Devices"]
+            Cam[Camera\nComputer Vision]
+            Loop[Inductive Loop]
+            Radar[Radar Sensor]
+        end
+        
+        Devices --> MQTT
+        MQTT --> Filter
+        Filter --> ML
+        ML --> Cache
+    end
+
+    subgraph Cloud ["AWS Cloud"]
+        subgraph Ingestion ["Ingestion"]
+            IoT[IoT Core]
+            Shadow[Device Shadow\nService]
+        end
+        
+        subgraph Processing ["Processing"]
+            KDA[Kinesis Analytics]
+            SageMaker[SageMaker\nModel Training]
+        end
+        
+        subgraph Storage ["Storage"]
+            RDS[(RDS)]
+            S3[S3]
+        end
+    end
+
+    %% Edge-Cloud Communication
+    Cache -->|Filtered Data\n(5-min batches)| IoT
+    ML -->|Model Updates| Greengrass
+    SageMaker -->|New Models| Shadow
+    Shadow -->|OTA Updates| ML
+    
+    %% Styling
+    style Edge fill:#ffebee,stroke:#b71c1c
+    style Cloud fill:#e1f5fe,stroke:#01579b
+    style Components fill:#e8f5e9,stroke:#2e7d32
+    style Devices fill:#fff3e0,stroke:#e65100

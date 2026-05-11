@@ -1,0 +1,83 @@
+graph TB
+    %% Global Styling
+    %% Source: [cite: 1]
+    title["Traific Platform: Enhanced Data Pipeline Architecture"]
+    style title fill:#fdfdfd,stroke:#333,stroke-width:2px,font-weight:bold,font-size:20px
+
+    %% Data Sources Layer
+    subgraph Sources ["<b>1. Data Sources Layer</b>"]
+        direction LR
+        S1[("Physical Sensors<br/>(Inductive Loops)")]
+        S2[("Camera Systems<br/>(Computer Vision)")]
+        S3[("Bluetooth/WiFi<br/>Sniffers")]
+        S4[("Third-party<br/>Data Feeds")]
+    end
+
+    %% Ingestion Layer
+    subgraph Ingestion ["<b>2. Ingestion Layer</b><br/><i>(Region: ap-southeast-2)</i>"]
+        IoT[[AWS IoT Core<br/>MQTT/HTTPS Endpoint]]
+        KDS{Amazon Kinesis<br/>Data Streams}
+        IoT -->|Raw Sensor Data| KDS
+    end
+
+    %% Stream Processing Layer
+    subgraph StreamProc ["<b>3. Stream Processing Layer</b>"]
+        KDA[[Kinesis Data Analytics<br/>Apache Flink]]
+        Lambda([Lambda Functions<br/>Lightweight ETL])
+        KDS -.->|Stream| KDA
+        KDS -.->|Trigger| Lambda
+    end
+
+    %% Storage Layer
+    subgraph Storage ["<b>4. Multimodal Storage Layer</b>"]
+        direction TB
+        subgraph Hot ["<b>Hot Path</b> (Low Latency)"]
+            RDS[(RDS PostgreSQL<br/>+ PostGIS + TimescaleDB)]
+            Redis[(ElastiCache<br/>Redis)]
+        end
+        
+        subgraph Warm ["<b>Warm Path</b>"]
+            S3_Cur[("S3 - Current Month<br/>(Parquet)")]
+        end
+        
+        subgraph Cold ["<b>Cold Path</b> (Archival)"]
+            S3_Hist[("S3 - Historical<br/>(Parquet/Zstandard)")]
+            Glacier[("S3 Glacier<br/>Archival")]
+        end
+    end
+
+    %% Processing & Analytics
+    subgraph Processing ["<b>5. Analytics & ML</b>"]
+        Glue[[AWS Glue<br/>ETL Jobs]]
+        Athena[[Amazon Athena<br/>Ad-hoc Queries]]
+        SageMaker[[Amazon SageMaker<br/>ML Models]]
+    end
+
+    %% Serving Layer
+    subgraph Serving ["<b>6. API & Serving Layer</b>"]
+        API{{FastAPI REST + GraphQL}}
+        Cache[(Redis Cache)]
+    end
+
+    %% Data Flow Connections
+    KDA ==>|Real-time Aggregates| Redis
+    KDA ==>|Processed Observations| RDS
+    Lambda ==>|Normalized Data| RDS
+    Lambda -->|Raw Archive| S3_Cur
+    
+    RDS -->|Time-series Data| API
+    Redis -->|Cached Metrics| API
+    
+    S3_Cur -->|Monthly Rollup| Glue
+    Glue -->|Partitioned Data| S3_Hist
+    S3_Hist -.->|Query| Athena
+    S3_Hist -.->|Training Data| SageMaker
+    SageMaker -->|Predictions| RDS
+    
+    %% Styling for Professionalism
+    style Sources fill:#f8f9fa,stroke:#01579b,stroke-width:2px
+    style Ingestion fill:#fffaf3,stroke:#e65100,stroke-width:2px
+    style StreamProc fill:#f1f8e9,stroke:#2e7d32,stroke-width:2px
+    style Storage fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Processing fill:#fff1f0,stroke:#b71c1c,stroke-width:2px
+    style Serving fill:#e0f2f1,stroke:#006064,stroke-width:2px

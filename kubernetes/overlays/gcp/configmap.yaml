@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: traific-apps
+data:
+  DB_HOST: ${DB_HOST}
+  DB_PORT: "5432"
+  DB_NAME: "traific_db"
+  DB_POOL_SIZE: "10"
+  DB_MAX_OVERFLOW: "5"
+  REDIS_URL: "redis://redis.traific-redis:6379/2"
+  CACHE_TTL_SECONDS: "300"
+  API_RATE_LIMIT_PER_MIN: "100"
+  API_KEY_HEADER: "X-API-Key"
+  LOG_LEVEL: "INFO"
+  CORS_ORIGINS: "https://traific.unimelb.edu.au,https://dashboard.traific.edu.au"
+  ENVIRONMENT: "production"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stream-processor-config
+  namespace: traific-apps
+data:
+  MQTT_BROKER_URL: "tcp://emqx.traific-mqtt:1883"
+  MQTT_TOPIC: "sensors/+/data"
+  MQTT_CLIENT_ID: "stream-processor"
+  MQTT_QOS: "1"
+  DB_HOST: ${DB_HOST}
+  DB_PORT: "5432"
+  DB_NAME: "traific_db"
+  DB_POOL_SIZE: "20"
+  DB_MAX_OVERFLOW: "10"
+  BATCH_SIZE: "500"
+  FLUSH_INTERVAL_SEC: "5"
+  GCS_BUCKET: ${GCS_BUCKET}
+  GCS_PREFIX: "raw-sensor-data/"
+  LOG_LEVEL: "INFO"
+  REDIS_URL: "redis://redis.traific-redis:6379/0"
+  DEAD_LETTER_QUEUE_URL: "redis://redis.traific-redis:6379/1"

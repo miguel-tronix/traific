@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: traific-apps
+data:
+  DB_HOST: ${DB_HOST}
+  DB_PORT: "5432"
+  DB_NAME: "traific_db"
+  DB_POOL_SIZE: "10"
+  DB_MAX_OVERFLOW: "5"
+  REDIS_URL: "redis://redis.traific-redis:6379/2"
+  CACHE_TTL_SECONDS: "300"
+  API_RATE_LIMIT_PER_MIN: "100"
+  API_KEY_HEADER: "X-API-Key"
+  LOG_LEVEL: "INFO"
+  CORS_ORIGINS: "https://traific.unimelb.edu.au,https://dashboard.traific.edu.au"
+  ENVIRONMENT: "production"

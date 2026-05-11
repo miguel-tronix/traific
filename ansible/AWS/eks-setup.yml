@@ -1,0 +1,135 @@
+---
+- name: Install EKS Prerequisites
+  hosts: traific_servers
+  become: true
+  vars:
+    aws_region: ap-southeast-2
+    eks_cluster_name: traific-cluster
+  tasks:
+    - name: Install system dependencies
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        name:
+          - curl
+          - git
+          - jq
+          - unzip
+          - python3-pip
+          - python3-venv
+          - apt-transport-https
+          - gnupg2
+          - ca-certificates
+        state: present
+
+    - name: Install AWS CLI v2
+      unarchive:
+        src: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp
+        remote_src: yes
+        creates: /usr/local/bin/aws
+      notify: Cleanup AWS CLI archive
+
+    - name: Install kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install Helm
+      unarchive:
+        src: https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz
+        dest: /usr/local
+        remote_src: yes
+        creates: /usr/local/bin/helm
+      notify: Cleanup Helm archive
+
+    - name: Install eksctl
+      get_url:
+        url: "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+        dest: /tmp/eksctl.tar.gz
+        mode: '0644'
+
+    - name: Extract eksctl
+      unarchive:
+        src: /tmp/eksctl.tar.gz
+        dest: /usr/local/bin
+        remote_src: yes
+        creates: /usr/local/bin/eksctl
+      notify: Cleanup eksctl archive
+
+    - name: Configure AWS credentials
+      template:
+        src: aws-credentials.j2
+        dest: ~/.aws/credentials
+        mode: '0600'
+
+    - name: Update kubectl config for EKS cluster
+      command:
+        cmd: "aws eks update-kubeconfig --name {{ eks_cluster_name }} --region {{ aws_region }}"
+      register: kubeconfig_result
+      changed_when: "'updated' in kubeconfig_result.stdout or 'created' in kubeconfig_result.stdout"
+
+  handlers:
+    - name: Cleanup AWS CLI archive
+      file:
+        path: /tmp/aws
+        state: absent
+
+    - name: Cleanup Helm archive
+      file:
+        path: /tmp/linux-amd64
+        state: absent
+
+    - name: Cleanup eksctl archive
+      file:
+        path: /tmp/eksctl.tar.gz
+        state: absent
+
+- name: Install Kubernetes Add-ons (Helm)
+  hosts: traific_servers
+  vars:
+    aws_region: ap-southeast-2
+    eks_cluster_name: traific-cluster
+  tasks:
+    - name: Add Helm repositories
+      command:
+        cmd: "/usr/local/bin/helm repo add {{ item.name }} {{ item.url }}"
+        creates: "/var/lib/helm/repositories/{{ item.name }}"
+      loop:
+        - { name: 'aws-ebs-csi-driver', url: 'https://kubernetes-sigs.github.io/aws-ebs-csi-driver' }
+        - { name: 'metrics-server', url: 'https://kubernetes-sigs.github.io/metrics-server' }
+        - { name: 'prometheus-community', url: 'https://prometheus-community.github.io/helm-charts' }
+        - { name: 'grafana', url: 'https://grafana.github.io/helm-charts' }
+        - { name: 'emqx', url: 'https://repos.emqx.io/charts' }
+
+    - name: Update Helm repositories
+      command:
+        cmd: /usr/local/bin/helm repo update
+
+    - name: Install AWS EBS CSI Driver
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install aws-ebs-csi-driver aws-ebs-csi-driver/aws-ebs-csi-driver
+          --namespace kube-system
+          --set controller.replicaCount=2
+          --set-json 'node.tolerations=[{"key":"workload","operator":"Equal","value":"redis","effect":"NoSchedule"}]'
+          --wait --timeout 5m
+
+    - name: Install Metrics Server
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install metrics-server metrics-server/metrics-server
+          --namespace kube-system
+          --set args[0]="--kubelet-insecure-tls=true"
+          --wait --timeout 2m
+
+    - name: Install AWS Load Balancer Controller
+      command:
+        cmd: >
+          /usr/local/bin/helm upgrade --install aws-load-balancer-controller aws-load-balancer-controller/aws-load-balancer-controller
+          --namespace kube-system
+          --set clusterName={{ eks_cluster_name }}
+          --set serviceAccount.create=true
+          --set serviceAccount.name=aws-load-balancer-controller
+          --wait --timeout 5m

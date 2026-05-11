@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emqx-config
+  namespace: traific-mqtt
+data:
+  EMQX_ALLOW_ANONYMOUS: "false"
+  EMQX_MQTT__MAX_PACKET_SIZE: "32KB"
+  EMQX_MQTT__KEEPALIVE: "300s"
+  EMQX_LISTENER__TCP__EXTERNAL: "1883"
+  EMQX_LISTENER__WS__EXTERNAL: "8083"
+  EMQX_DASHBOARD__DEFAULT_USERNAME: "admin"
+  EMQX_DASHBOARD__DEFAULT_PASSWORD: "changeme"
+  EMQX_CLUSTER__DISCOVERY: "dns"
+  EMQX_CLUSTER__DNS__NAME: "emqx-headless.traific-mqtt.svc.cluster.local"
+  EMQX_CLUSTER__DNS__APP: "emqx"
+  EMQX_LOG__CONSOLE__LEVEL: "warning"
+  EMQX_AUTH__MQTT__ALLOW_ANONYMOUS: "false"
+  EMQX_AUTH__SASL__ENABLED: "false"

@@ -1,0 +1,80 @@
+classDiagram
+    direction BT
+    %% Global Styling & Classes
+    class Tenant {
+        +UUID id
+        +VARCHAR name
+        +JSONB settings
+        +TIMESTAMP created_at
+    }
+
+    class RoadSegment {
+        +UUID id
+        +UUID tenant_id
+        +GEOMETRY(LineString, 4326) geometry
+        +INTEGER speed_limit
+        +INTEGER lanes
+        +JSONB metadata
+    }
+
+    class Sensor {
+        +UUID id
+        +UUID road_segment_id
+        +VARCHAR type
+        +GEOMETRY(Point, 4326) location
+        +BOOLEAN active
+        +TIMESTAMP last_seen
+    }
+
+    class TrafficObservation {
+        <<Time-series Hypertable>>
+        +UUID id
+        +UUID sensor_id
+        +TIMESTAMP timestamp
+        +INTEGER volume
+        +FLOAT avg_speed
+        +JSONB vehicle_class_counts
+    }
+    
+    class TrafficAggregates {
+        <<Continuous Aggregate>>
+        +DATE date
+        +INTEGER hour
+        +UUID road_segment_id
+        +INTEGER total_volume
+        +FLOAT avg_speed
+        +INTEGER peak_volume
+    }
+
+    class Incident {
+        +UUID id
+        +UUID road_segment_id
+        +VARCHAR type
+        +GEOMETRY(Point, 4326) location
+        +TIMESTAMP start_time
+        +VARCHAR severity
+        +VARCHAR status
+    }
+
+    class Prediction {
+        +UUID id
+        +UUID road_segment_id
+        +TIMESTAMP prediction_time
+        +INTEGER predicted_volume
+        +FLOAT confidence
+        +VARCHAR model_version
+    }
+
+    %% Relationships with Cardinality
+    Tenant "1" --o "0..*" RoadSegment : owns
+    Tenant "1" --o "0..*" Sensor : manages
+    RoadSegment "1" --o "0..*" Sensor : contains
+    RoadSegment "1" --o "0..*" Incident : monitors
+    Sensor "1" --o "0..*" TrafficObservation : ingests
+    RoadSegment "1" --o "0..*" TrafficAggregates : summarizes
+    RoadSegment "1" --o "0..*" Prediction : forecasts
+
+    %% Engineering Annotations
+    note for TrafficObservation "Partitioned by month (TimescaleDB)\nIndex: (sensor_id, timestamp DESC)"
+    note for RoadSegment "Spatial Index: GIST (geometry)"
+    note for TrafficAggregates "Materialized View for Dashboard Performance"

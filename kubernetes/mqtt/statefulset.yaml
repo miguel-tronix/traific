@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: emqx
+  namespace: traific-mqtt
+  labels:
+    app: emqx
+    app.kubernetes.io/name: emqx
+    app.kubernetes.io/version: "5.8"
+spec:
+  serviceName: emqx-headless
+  replicas: 3
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: emqx
+      app.kubernetes.io/name: emqx
+  template:
+    metadata:
+      labels:
+        app: emqx
+        app.kubernetes.io/name: emqx
+        app.kubernetes.io/version: "5.8"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: emqx
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: emqx
+      containers:
+        - name: emqx
+          image: emqx/emqx:5.8.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mqtt-tcp
+              containerPort: 1883
+              protocol: TCP
+            - name: mqtt-ws
+              containerPort: 8083
+              protocol: TCP
+            - name: http-dashboard
+              containerPort: 18083
+              protocol: TCP
+            - name: mqtt-dist
+              containerPort: 53688
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: emqx-config
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/v5/status
+              port: 18083
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v5/status
+              port: 18083
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 5
+          volumeMounts:
+            - name: emqx-data
+              mountPath: /opt/emqx/data
+            - name: emqx-log
+              mountPath: /opt/emqx/log
+  volumeClaimTemplates:
+    - metadata:
+        name: emqx-data
+        namespace: traific-mqtt
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 2Gi
+    - metadata:
+        name: emqx-log
+        namespace: traific-mqtt
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 1Gi
